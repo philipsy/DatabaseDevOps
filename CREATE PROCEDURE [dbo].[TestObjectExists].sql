@@ -1,6 +1,3 @@
-USE [DBA]
-GO
-
 /****** Object:  StoredProcedure [dbo].[TestObjectExists]    Script Date: 03/03/2015 11:48:16 ******/
 SET ANSI_NULLS ON
 GO
@@ -12,11 +9,10 @@ GO
 CREATE PROCEDURE [dbo].[TestObjectExists]
 --ALTER PROCEDURE [Test_Harn].[spObjectExists]
 @i_ObjectType sysname
-,@i_ObjectName sysname = Null --not needed if testing schema's existence
-,@i_ParentSchemaName sysname = Null
+,@i_ObjectName sysname = Null
+,@i_ParentSchemaName sysname = Null --not needed if testing schema's existence
 ,@i_DbName sysname = Null
 AS
-
 /*
 USAGE:
 TestObjectExists 'DATABASE', 'msdb'
@@ -24,7 +20,7 @@ TestObjectExists 'SCHEMA', 'dbo'
 TestObjectExists 'SCHEMA', 'dbo', Null, 'msdb'
 TestObjectExists 'VIEW', 'all_objects', 'sys'
 TestObjectExists 'USER_TABLE', 'backupset', 'dbo', 'msdb'
-TestObjectExists 'DATABASE_ROLE', '{Role Name}', Null, 'Test'
+TestObjectExists 'DATABASE_ROLE', '{Your Role Name}', Null, 'Test'
 TestObjectExists 'USER_DEFINED_TABLE_TYPE', '{User Defined Table Type Name', Null, 'msdb'
 */
 
@@ -147,7 +143,7 @@ BEGIN
 	END
 	
 	--check existence of object type_desc in database--
-	SET @Sql = N'SELECT DISTINCT type_desc FROM sys.all_objects #o'
+	SET @Sql = N'SELECT DISTINCT type_desc FROM' + ' ' + QUOTENAME(@i_DbName) + '.' + 'sys.all_objects #o'
 	+ @crlf + 'UNION ALL' + @crlf + 'SELECT' + ' ' + QUOTENAME('USER_DEFINED_TABLE_TYPE', @sq)
 	+ @crlf + 'UNION ALL' + @crlf + 'SELECT' + ' ' + QUOTENAME('DATABASE_ROLE', @sq)
 	+ @crlf + 'UNION ALL' + @crlf + 'SELECT' + ' ' + QUOTENAME('SYNONYM', @sq)
