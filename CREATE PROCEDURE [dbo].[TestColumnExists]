@@ -1,0 +1,149 @@
+/****** Object:  StoredProcedure [dbo].[TestColumnExists]    Script Date: 18/03/2015 18:49:54 ******/
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+
+-- =============================================
+-- Author:		Philip Symons
+-- Create date: 18 Mar 2015
+-- Description:	Tests existence of column in table
+-- =============================================
+--DROP PROCEDURE [dbo].[TestColumnExists]
+CREATE PROCEDURE [dbo].[TestColumnExists]
+--CREATE PROCEDURE [dbo].[TestColumnExists]
+@i_ColumnName sysname = Null
+,@i_ParentObjectName sysname
+,@i_ParentObjectSchemaName sysname = Null --not needed if testing schema's existence
+,@i_DbName sysname = Null
+,@i_Debug int = 0
+AS
+/*
+USAGE
+TestColumnExists '
+*/
+
+/*
+TESTING
+*/
+
+BEGIN
+	SET NOCOUNT ON;
+	DECLARE @Msg nvarchar(4000)
+	DECLARE @Sql nvarchar(4000)
+	DECLARE @crlf nchar(2) = NCHAR(13) + NCHAR(10)
+	DECLARE @dq nchar(1) = NCHAR(34)
+	DECLARE @sq nchar(1) = NCHAR(39)
+	/*
+	Using dynamic Sql below to query other databases on server: before concatenating parameters with sql
+	check that database and schema parameters match server object names
+	*/
+	--check existence of database--
+	SET @Sql = N'SELECT name FROM sys.databases'
+	CREATE TABLE #Database(name sysname)
+	INSERT INTO #Database EXEC sp_executesql @Sql
+	
+	DECLARE @DbNameCur sysname = ''
+	DECLARE @DbNameFound char = 'N'
+	WHILE @DbNameCur Is Not Null
+	BEGIN
+		SELECT @DbNameCur = MIN(d.name) FROM #Database d WHERE d.name > @DbNameCur 
+		IF @DbNameCur = @i_DbName
+		BEGIN
+			BEGIN 
+				SET @DbNameFound = 'Y'
+				BREAK
+
+			END
+		END
+
+	END
+
+	IF @DbNameFound = 'N'
+	BEGIN
+		SET @Msg = 'Database not found'
+		RAISERROR(@Msg, 16, 1, 1)
+		RETURN
+	END
+	ELSE
+	BEGIN
+		IF @i_Debug > 0
+		BEGIN
+			PRINT '@DbNameFound:' + @DbNameFound 
+		END
+	END
+	
+	--check existence of schemas within chosen database--
+	SET @Sql = N'SELECT s.name FROM' + ' ' + QUOTENAME(@i_DbName) + '.' + 'sys.schemas s'
+	
+	CREATE TABLE #Schema(name sysname)
+	INSERT INTO #Schema EXEC sp_executesql @Sql
+	
+	DECLARE @SchemaNameCur sysname = ''
+	DECLARE @SchemaNameFound char = 'N'
+	WHILE @SchemaNameCur Is Not Null
+	BEGIN
+		SELECT @SchemaNameCur = MIN(s.name) FROM #Schema s WHERE s.name > @SchemaNameCur
+		IF @SchemaNameCur = @i_ParentObjectSchemaName
+		BEGIN
+			BEGIN 
+				SET @SchemaNameFound = 'Y'
+				BREAK
+
+			END
+			
+		END
+
+	END
+				
+	IF @SchemaNameFound = 'N'
+	BEGIN
+		SET @Msg = 'Schema' +  ' ' + @i_ParentObjectSchemaName + ' ' + 'not found' + ' ' + 'in' + ' ' + @i_DbName + ' ' + 'database' + '.'
+		RAISERROR(@Msg, 16, 1, 1)
+		RETURN
+	END
+	ELSE
+	BEGIN
+		IF @i_Debug > 0
+		BEGIN
+			PRINT '@SchemaNameFound:' + @SchemaNameFound
+		END
+	END
+	
+	CREATE TABLE #columns(name sysname NOT NULL)
+
+	SET @Sql = 'SELECT c.name'
+	+ @crlf + 'FROM' + ' ' +  @i_DbName + '.' + 'sys.schemas s'
+	+ @crlf + 'JOIN' +  ' ' + @i_DbName + '.' + 'sys.all_objects o'
+	+ @crlf + 'ON s.schema_id=o.schema_id'
+	+ @crlf + 'JOIN' +  ' ' + @i_DbName + '.' + 'sys.all_columns c'
+	+ @crlf + 'ON o.object_id=c.object_id'
+	+ @crlf + 'WHERE s.name=' + QUOTENAME(@i_ParentObjectSchemaName, @sq)
+	+ @crlf + 'And o.name=' + QUOTENAME(@i_ParentObjectName, @sq)
+	+ @crlf + 'And c.name=' + @sq + @i_ColumnName + @sq
+	
+	INSERT INTO #columns EXEC sp_executesql @Sql
+
+	DECLARE @QualifiedName sysname = @i_ParentObjectSchemaName + '.' + @i_ParentObjectName + '.' + @i_ColumnName
+	
+	IF Not EXISTS(SELECT Null FROM #columns)
+	BEGIN
+		SET @Msg = 'Column' + ' ' + QUOTENAME(@QualifiedName, @dq) + ' ' + 'not found in' + ' ' + @i_DbName + ' ' + 'database' + '.'
+		RAISERROR(@Msg, 16, 1, 1)
+	END
+	ELSE
+	BEGIN
+		SET @Msg = 'Column' + ' ' + QUOTENAME(@QualifiedName, @dq) + ' ' + 'found in' + ' ' + @i_DbName + ' ' + 'database' + '.'
+		RAISERROR(@Msg, 10, 1, 1)
+			
+	END
+
+
+END
+
+
+GO
+
+
