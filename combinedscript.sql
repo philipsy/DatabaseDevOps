@@ -1,3 +1,4 @@
+
 USE Journal
 GO
 
